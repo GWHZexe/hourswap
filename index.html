@@ -1,0 +1,35 @@
+<div class="container">
+  <p>Welcome: <span id="name">Loading...</span></p>
+  <button onclick="signIn()">Sign In</button>
+  <button onclick="signOut()">Sign Out</button>
+  <br><br>
+  <button onclick="sendTest()">Send 2 Grateful hours to testUser</button>
+</div>
+<div class="transaction-form">
+  <h3>Send Hours</h3>
+  <label for="from">From:</label>
+  <input id="from" value="abc123" required>
+  
+  <label for="to">To:</label>
+  <input id="to" value="testUser" required>
+  
+  <label for="amount">Hours:</label>
+  <input id="amount" value="1" type="number" min="1" max="100" required>
+  
+  <label for="feeling">Feeling:</label>
+  <select id="feeling" required>
+    <option value="Kindness">Kindness</option>
+    <option value="Grateful">Grateful</option>
+    <option value="Curious">Curious</option>
+    <option value="Playful">Playful</option>
+  </select>
+  
+  <label for="emoji">Emoji:</label>
+  <input id="emoji" value="🧱" maxlength="2" required>
+  
+  <label for="reason">Reason:</label>
+  <input id="reason" value="Helped with boxes" maxlength="100" required>
+  
+  <br><br>
+  <button onclick="sendReal()" type="button">Send</button>
+</div>
