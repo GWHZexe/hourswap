@@ -1,4 +1,9 @@
-// Firebase configuration
+// Firebase Modular SDK imports (v9.x compatible)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, writeBatch, getDocs, query, orderBy, limit, Timestamp, increment, FieldValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+// Your config
 const firebaseConfig = {
   apiKey: "AIzaSyCnoBUogE4MPfmZje8luNc2nJNMZPZkaOQ",
   authDomain: "hs-app-704ad.firebaseapp.com",
@@ -10,37 +15,32 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-
-// Get Firebase services
-const db = firebase.firestore();
-const auth = firebase.auth();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Sign in function
-function signIn() {
-  // Using modern promise-based approach instead of deprecated method
-  auth.signInWithEmailAndPassword('test@test.com', '123456')
-    .then((userCredential) => {
-      console.log("Signed in successfully:", userCredential.user);
-    })
-    .catch((error) => {
-      console.error("Sign in error:", error.code, error.message);
-    });
+async function signIn() {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, 'test@test.com', '123456');
+    console.log("Signed in successfully:", userCredential.user);
+  } catch (error) {
+    console.error("Sign in error:", error.code, error.message);
+  }
 }
 
 // Sign out function
-function signOut() {
-  auth.signOut()
-    .then(() => {
-      console.log("Signed out successfully");
-    })
-    .catch((error) => {
-      console.error("Sign out error:", error);
-    });
+async function signOut() {
+  try {
+    await signOut(auth);
+    console.log("Signed out successfully");
+  } catch (error) {
+    console.error("Sign out error:", error);
+  }
 }
 
 // Auth state observer
-auth.onAuthStateChanged(user => {
+onAuthStateChanged(auth, (user) => {
   if (user) {
     document.getElementById('name').textContent = user.email || user.displayName || 'User Signed In';
     console.log("User is signed in:", user);
@@ -49,58 +49,53 @@ auth.onAuthStateChanged(user => {
     console.log("No user is signed in");
   }
 });
-function getBalance() {
-  db.collection('users')
-    .doc('testUser')
-    .collection('balances')
-    .doc('Kindness')
-    .get()
-    .then(doc => {
-      if (doc.exists && doc.data()) {
-        const amount = doc.data().amount;
-        console.log('Kindness: ' + amount);
-        // Assuming you want to update the name element based on your HTML
-        document.getElementById('name').innerText = 
-          'Loading... | Kindness: ' + amount;
-      } else {
-        console.log('No such document!');
-      }
-    })
-    .catch(err => {
-      console.log('Error: ', err);
-    });
+async function getBalance() {
+  try {
+    const docRef = doc(db, 'users', 'testUser', 'balances', 'Kindness');
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists() && docSnap.data()) {
+      const amount = docSnap.data().amount;
+      console.log('Kindness: ' + amount);
+      // Assuming you want to update the name element based on your HTML
+      document.getElementById('name').innerText = 
+        'Loading... | Kindness: ' + amount;
+    } else {
+      console.log('No such document!');
+    }
+  } catch (err) {
+    console.log('Error: ', err);
+  }
 }
-function showTransactions() {
-  db.collection("transactions")
-    .orderBy("timestamp", "desc")
-    .limit(5)
-    .get()
-    .then(snapshot => {
-      let html = '';
-      if (snapshot.empty) {
-        html = 'No transactions found';
-      } else {
-        snapshot.forEach(doc => {
-          const d = doc.data();
-          html += `
-            <div class="transaction-item">
-              ${d.emoji || ''} ${d.amount || ''} ${d.feelingType || ''}<br>
-              from ${d.fromUID?.slice(0,4)}... → ${d.toUID?.slice(0,4)}...<br>
-              (${d.reason || ''})
-            </div><hr>`;
-        });
-      }
-      document.getElementById('name').innerHTML = html; // Use innerHTML for HTML content
-    })
-    .catch(error => {
-      console.error('Error fetching transactions:', error);
-      document.getElementById('name').innerHTML = 'Error loading transactions';
-    });
+async function showTransactions() {
+  try {
+    const q = query(collection(db, "transactions"), orderBy("timestamp", "desc"), limit(5));
+    const querySnapshot = await getDocs(q);
+    
+    let html = '';
+    if (querySnapshot.empty) {
+      html = 'No transactions found';
+    } else {
+      querySnapshot.forEach(doc => {
+        const d = doc.data();
+        html += `
+          <div class="transaction-item">
+            ${d.emoji || ''} ${d.amount || ''} ${d.feelingType || ''}<br>
+            from ${d.fromUID?.slice(0,4)}... → ${d.toUID?.slice(0,4)}...<br>
+            (${d.reason || ''})
+          </div><hr>`;
+      });
+    }
+    document.getElementById('name').innerHTML = html; // Use innerHTML for HTML content
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    document.getElementById('name').innerHTML = 'Error loading transactions';
+  }
 }
 async function checkBalance(uid = 'abc123') { // Remove default after auth integration
   try {
-    const docRef = db.collection('users').doc(uid).collection('balances');
-    const snap = await docRef.get();
+    const colRef = collection(db, 'users', uid, 'balances');
+    const snap = await getDocs(colRef);
     
     if (snap.empty) {
       document.getElementById('name').innerHTML = 'No balances found';
@@ -129,13 +124,13 @@ async function checkBalance(uid = 'abc123') { // Remove default after auth integ
 }
 async function sendTest() {
   try {
-    const batch = db.batch();
-    const myRef = db.collection('users').doc('abc123').collection('balances').doc('Grateful');
-    const theirRef = db.collection('users').doc('testUser').collection('balances').doc('Grateful');
+    const batch = writeBatch(db);
+    const myRef = doc(db, 'users', 'abc123', 'balances', 'Grateful');
+    const theirRef = doc(db, 'users', 'testUser', 'balances', 'Grateful');
 
     // Get sender's current balance
-    const myDoc = await myRef.get();
-    const currentAmount = myDoc.exists ? myDoc.data().amount : 0;
+    const myDoc = await getDoc(myRef);
+    const currentAmount = myDoc.exists() ? myDoc.data().amount : 0;
 
     if (currentAmount < 2) {
       alert('Not enough hours available!');
@@ -143,18 +138,19 @@ async function sendTest() {
     }
 
     // Prepare batch operations
-    batch.update(myRef, { amount: firebase.firestore.FieldValue.increment(-2) });
-    batch.update(theirRef, { amount: firebase.firestore.FieldValue.increment(2) });
+    batch.update(myRef, { amount: increment(-2) });
+    batch.update(theirRef, { amount: increment(2) });
 
     // Add transaction record
-    batch.set(db.collection('transactions').doc(), {
+    const txRef = doc(collection(db, 'transactions'));
+    batch.set(txRef, {
       fromUID: 'abc123',
       toUID: 'testUser',
       amount: 2,
       feelingType: 'Grateful',
       emoji: '🍕',
       reason: 'Pizza delivered',
-      timestamp: firebase.firestore.Timestamp.now(),
+      timestamp: Timestamp.now(),
       status: 'confirmed'
     });
 
@@ -199,13 +195,13 @@ async function sendReal() {
     }
 
     // Create batch operation
-    const batch = db.batch();
-    const fromRef = db.collection('users').doc(fromUID).collection('balances').doc(feeling);
-    const toRef = db.collection('users').doc(toUID).collection('balances').doc(feeling);
+    const batch = writeBatch(db);
+    const fromRef = doc(db, 'users', fromUID, 'balances', feeling);
+    const toRef = doc(db, 'users', toUID, 'balances', feeling);
 
     // Check sender's balance
-    const fromDoc = await fromRef.get();
-    const currentAmount = fromDoc.exists ? fromDoc.data().amount : 0;
+    const fromDoc = await getDoc(fromRef);
+    const currentAmount = fromDoc.exists() ? fromDoc.data().amount : 0;
 
     if (currentAmount < amount) {
       alert(`Insufficient balance. Current: ${currentAmount}, Requested: ${amount}`);
@@ -213,11 +209,11 @@ async function sendReal() {
     }
 
     // Prepare batch operations
-    batch.update(fromRef, { amount: firebase.firestore.FieldValue.increment(-amount) });
-    batch.update(toRef, { amount: firebase.firestore.FieldValue.increment(amount) });
+    batch.update(fromRef, { amount: increment(-amount) });
+    batch.update(toRef, { amount: increment(amount) });
 
     // Add transaction record
-    const txRef = db.collection('transactions').doc();
+    const txRef = doc(collection(db, 'transactions'));
     batch.set(txRef, {
       fromUID,
       toUID,
@@ -225,7 +221,7 @@ async function sendReal() {
       feelingType: feeling,
       emoji,
       reason,
-      timestamp: firebase.firestore.Timestamp.now(),
+      timestamp: Timestamp.now(),
       status: 'confirmed'
     });
 
